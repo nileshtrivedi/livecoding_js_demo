@@ -1,127 +1,586 @@
-<html>
-  <head>
-    <title>Live Coding</title>
-    <style type="text/css">
-      body { padding-left: 15px; background-color: #21212B; color: #B3ACE3;}
-      .test { padding: 8px 4px; margin-bottom: 9px; border-radius: 8px; background-color: #e9e9e9; border: thin solid #999; margin-left: 6px; display: inline-block;}
-      .test span { color: black; font-size: small; }
-      .close-image{
-          display: block;
-          float:right;
-          position:relative;
-          top:-10px;
-          right: -10px;
-          height: 20px;
-      }
-      #footer { margin-top: 50px; border-top: 1px solid #777;}
-      a { color: #B3ACE3;}
-    </style>
-  </head>
-  <body>
-    <form>
-      <h1 style="margin: 6px 0px;">Live Coding</h1>
-      <p>Edit the Javascript code on the left and see the tests running immediately on the right. The goal is to get green everywhere. You can add, change or remove the tests. Background: <a href="http://www.nileshtrivedi.com/live-coding" target="_blank">http://www.nileshtrivedi.com/live-coding</a></p>
-      <table><tr>
-      <td valign="top">
-        <span id="code_eval_error"></span><br/>
-        <textarea style="background-color: #131320; border: 2px solid #111; border-radius: 8px; padding: 4px; color: white;" id="code" rows="30" cols="60" onkeyup="code_changed()">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Coding Environment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    :root {
+      /* Light Theme Palette */
+      --bg-color: #f3f4f6;
+      --panel-bg: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --accent-color: #6366f1;
+      /* Indigo */
+      --accent-hover: #4f46e5;
+
+      /* Status Colors - High Contrast */
+      --success-color: #059669;
+      /* Darker Green */
+      --success-bg: #d1fae5;
+      --error-color: #dc2626;
+      /* Darker Red */
+      --error-bg: #fee2e2;
+      --neutral-border: #e5e7eb;
+
+      --editor-bg: #f9fafb;
+      --font-sans: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* --- Header --- */
+    header {
+      background-color: var(--panel-bg);
+      border-bottom: 1px solid var(--neutral-border);
+      padding: 0 1.5rem;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+      z-index: 10;
+    }
+
+    h1 {
+      font-size: 1.125rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    h1::before {
+      content: '';
+      display: block;
+      width: 10px;
+      height: 10px;
+      background: var(--accent-color);
+      border-radius: 50%;
+    }
+
+    .header-meta {
+      font-size: 0.825rem;
+      color: var(--text-secondary);
+    }
+
+    a {
+      color: var(--accent-color);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* --- Main Layout --- */
+    main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+      height: calc(100vh - 60px);
+    }
+
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      /* Prevent flex overflow */
+      background: var(--panel-bg);
+    }
+
+    .panel-left {
+      border-right: 1px solid var(--neutral-border);
+      flex: 1.2;
+    }
+
+    .panel-right {
+      flex: 1;
+      background-color: var(--bg-color);
+      /* Slightly distinctive bg for right side */
+    }
+
+    .panel-header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--neutral-border);
+      background: var(--panel-bg);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 48px;
+    }
+
+    /* --- Editor --- */
+    .editor-container {
+      flex: 1;
+      position: relative;
+      background: var(--editor-bg);
+    }
+
+    #code {
+      width: 100%;
+      height: 100%;
+      border: none;
+      resize: none;
+      padding: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 14px;
+      line-height: 1.6;
+      background: transparent;
+      color: var(--text-primary);
+      outline: none;
+    }
+
+    .error-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--error-bg);
+      color: var(--error-color);
+      padding: 0.75rem 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      border-top: 1px solid var(--error-color);
+      display: none;
+      /* Hidden by default */
+    }
+
+    .error-overlay.visible {
+      display: block;
+    }
+
+    /* --- Tests List --- */
+    .tests-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      /* Very tight spacing */
+    }
+
+    .test-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      background: var(--panel-bg);
+      padding: 0.4rem 0.75rem;
+      /* Dense vertical padding */
+      border: 1px solid var(--neutral-border);
+      border-radius: 4px;
+      /* Slightly squarer looks more technical */
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      transition: all 0.1s ease-in-out;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .test-item:hover {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+      z-index: 1;
+    }
+
+    /* Distinct left border strip for status */
+    .test-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: transparent;
+      transition: background-color 0.2s;
+    }
+
+    .test-item.success {
+      background-color: #f0fdf4;
+      /* Very subtle green tint */
+      border-color: #86efac;
+    }
+
+    .test-item.success::before {
+      background-color: var(--success-color);
+    }
+
+    .test-item.success .test-input {
+      color: #166534;
+    }
+
+    .test-item.failure {
+      background-color: #fef2f2;
+      /* Very subtle red tint */
+      border-color: #fca5a5;
+    }
+
+    .test-item.failure::before {
+      background-color: var(--error-color);
+    }
+
+    .test-item.failure .test-input {
+      color: #991b1b;
+    }
+
+    /* Status Icon */
+    .status-icon {
+      width: 16px;
+      display: flex;
+      justify-content: center;
+      flex-shrink: 0;
+      font-weight: bold;
+    }
+
+    .test-item.success .status-icon::after {
+      content: '✓';
+      color: var(--success-color);
+    }
+
+    .test-item.failure .status-icon::after {
+      content: '×';
+      color: var(--error-color);
+      font-size: 1.1em;
+    }
+
+    .test-input {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-family: inherit;
+      font-size: inherit;
+      color: var(--text-primary);
+      min-width: 0;
+      outline: none;
+    }
+
+    .test-result-display {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      max-width: 30%;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      overflow: hidden;
+      text-align: right;
+      border-left: 1px solid transparent;
+      /* placeholder */
+      padding-left: 0.5rem;
+    }
+
+    .test-item.failure .test-result-display {
+      color: var(--error-color);
+      font-weight: 500;
+    }
+
+    .remove-btn {
+      background: transparent;
+      border: none;
+      color: #9ca3af;
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      opacity: 0;
+      /* Hide by default to reduce clutter */
+      transition: opacity 0.2s, color 0.2s;
+    }
+
+    .test-item:hover .remove-btn,
+    .test-item:focus-within .remove-btn {
+      opacity: 1;
+    }
+
+    .remove-btn:hover {
+      color: var(--error-color);
+    }
+
+    /* --- Footer / Controls --- */
+    .tests-footer {
+      padding: 0.75rem 1rem;
+      border-top: 1px solid var(--neutral-border);
+      background: var(--panel-bg);
+      /* display: flex; center the button? */
+    }
+
+    .add-btn {
+      width: 100%;
+      padding: 0.6rem;
+      background-color: white;
+      border: 1px dashed #cbd5e1;
+      color: var(--text-secondary);
+      font-size: 0.85rem;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .add-btn:hover {
+      border-color: var(--accent-color);
+      color: var(--accent-color);
+      background-color: #f5f7ff;
+    }
+
+    .footer-credits {
+      margin-top: auto;
+      border-top: 1px solid var(--neutral-border);
+      background: var(--panel-bg);
+      padding: 0.5rem 1rem;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Live Coding</h1>
+    <div class="header-meta">
+      Inspired by <a href="http://vimeo.com/36579366" target="_blank" rel="noopener">Bret Victor</a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Left Panel: Implementation -->
+    <div class="panel panel-left ui-layout-pane">
+      <div class="panel-header">
+        Implementation (ES6+)
+      </div>
+      <div class="editor-container">
+        <textarea id="code" spellcheck="false" placeholder="// Write your javascript code here...">
 function factorial(n) {
-  if(n <= 0) { return; }
-  if(n == 1) { return 1; }
-  return (n * factorial(n-1));
+  if (n <= 0) return 0; // Fixes -1 case
+  if (n === 1) return 1;
+  return n * factorial(n - 1);
 }
 
-function permutation(n,r) {
-  return (factorial(n) / factorial(n-r));
+function permutation(n, r) {
+  return factorial(n) / factorial(n - r);
 }
 
-function combination(n,r) {
-  return (permutation(n,r) / factorial(r));
+function combination(n, r) {
+  return permutation(n, r) / factorial(r);
 }
 </textarea>
-      </td>
-      <td valign="top">
-        <br/>
-        <div id="all_tests"></div>
-        <a href="#" style="color: #B3ACE3;" onclick="add_test()">Add New Test</a>
-      </td>
-      </tr></table>
-    </form>
-    <div id="footer">
-      <p>Made By: <a href="http://nileshtrivedi.com" target="_blank">Nilesh Trivedi</a> (<a href="http://www.twitter.com/nileshtrivedi" target="_blank">@nileshtrivedi</a>)</p>
-      <p>Remixed By: Dan BROOKS (<a href="http://www.twitter.com/danactive" target="_blank">@danactive</a>)</p>
-      <p>Inspired By: <a href="http://vimeo.com/36579366" target="_blank">"Inventing On Principle"</a> by Bret Victor (<a href="http://www.twitter.com/worrydream" target="_blank">@worrydream</a>)</p>
-    </footer>
-    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
-    <script type="text/javascript">
-      // You may specify partial version numbers, such as "1" or "1.3",
-      //  with the same result. Doing so will automatically load the 
-      //  latest version matching that partial revision pattern 
-      //  (e.g. 1.3 would load 1.3.2 today and 1 would load 1.4.1).
-      google.load("jquery", "1");
-      google.setOnLoadCallback(function() {
-        // Place init code here instead of $(document).ready()
-        code_changed();
-      });
-    </script>
-    <script type="text/javascript">
-      function test_changed(ele){ code_changed(); }
-      
-      function code_changed(){
-        var code = $("#code")[0].value;
-        var code_error = null;
-        code_eval_failure('');
-        
-        try { 
-          var code_eval = eval(code);
-        }
-        catch(error) {
-          code_error = error;
-          code_eval_failure(error);
-        }
-        finally { };
-        
-        var all_tests = $("#all_tests textarea");
-        for(var i = 0; i < all_tests.length; i++){
-          var test_code = all_tests[i].value;
-          if(code_error) {
-            test_failure(all_tests[i], "Syntax Error");
-            continue;
-          }
-          // Known bug: infinite loop may happen while evaluating the tests which may block the thread
-          try { var test_eval = eval(test_code);} catch(error) { console.log("Test Eval Error: " + error); } finally { };
-          test_eval ? test_success(all_tests[i], test_eval) : test_failure(all_tests[i], test_eval);
-        }
-      }
-      
-      function code_eval_failure(result){
-        $("#code_eval_error")[0].innerHTML = result;
-      }
-      
-      function test_success(test, result){
-        $("span", test.parentNode)[0].innerHTML = result;
-        test.parentNode.style.background = '#afa';
-      }
-      
-      function test_failure(test, result){
-        $("span", test.parentNode)[0].innerHTML = result;
-        test.parentNode.style.background = '#faa';
-      }
-      
-      function add_test(textareaVal){
-        console.log("adding new test");
-        var test_element_str = "<div class=\"test\">\n<textarea rows=\"1\" cols=\"30\" onkeyup=\"test_changed(this)\">" + (textareaVal || '') + "</textarea>\n<a href=\"#\" onclick=\"remove_test(this)\"><img class=\"close-image\" src=\"delete.png\" /></a><br/>\n<span></span>\n</div>";
-        $("#all_tests").append(test_element_str);
-      }
-      
-      function remove_test(link){ console.log("removing test"); $(link.parentNode).remove();}
+        <div id="global_error" class="error-overlay"></div>
+      </div>
+    </div>
 
-      var testCases = ["factorial(-1) == null", "factorial(1) == 1", "factorial(2) == 2", "factorial(5) == 120","permutation(3,2) == 6", "permutation(5,5) == 120", "permutation(5,7) == null", "combination(3,2) == 3", "combination(3,3) == 1", "combination(3,0) == 1", "combination(5,7) == null"],
-      i,
-      len = testCases.length;
-      for (i = 0; i < len; i++) {
-        add_test(testCases[i]);
+    <!-- Right Panel: Tests -->
+    <div class="panel panel-right">
+      <div class="panel-header">
+        Tests
+        <span style="font-size: 0.7em; opacity: 0.7;">Green = True / Truthy</span>
+      </div>
+      <div id="tests_container" class="tests-container">
+        <!-- Tests injected here -->
+      </div>
+      <div class="tests-footer">
+        <button id="add_test_btn" class="add-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Add Test Case
+        </button>
+      </div>
+
+      <div class="footer-credits">
+        Original by <a href="http://nileshtrivedi.com">Nilesh Trivedi</a> &bull; Remixed by Dan Brooks
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Default data
+    const initialTestCases = [
+      "factorial(-1) == 0",
+      "factorial(1) == 1",
+      "factorial(2) == 2",
+      "factorial(5) == 120",
+      "permutation(3,2) == 6",
+      "permutation(5,5) == 120",
+      "combination(3,2) == 3",
+      "combination(3,3) == 1"
+    ];
+
+    (function () {
+      const codeInput = document.getElementById('code');
+      const testsContainer = document.getElementById('tests_container');
+      const globalErrorEl = document.getElementById('global_error');
+      const addTestBtn = document.getElementById('add_test_btn');
+
+      // Store references to test items to minimalize DOM queries during frequent running
+      let testElements = [];
+
+      // --- Logic ---
+
+      function runTests() {
+        const code = codeInput.value;
+        let codeError = null;
+
+        // 1. Evaluate User Code
+        globalErrorEl.classList.remove('visible');
+        globalErrorEl.textContent = '';
+
+        try {
+          // Evaluate in global scope so function definitions persist
+          window.eval(code);
+        } catch (e) {
+          codeError = e;
+          globalErrorEl.textContent = "Syntax/Runtime Error: " + e.message;
+          globalErrorEl.classList.add('visible');
+        }
+
+        // 2. Evaluate Tests
+        testElements.forEach(({ div, input, resultDisplay, statusIcon }) => {
+          const expr = input.value.trim();
+
+          // Reset styling
+          div.classList.remove('success', 'failure');
+          resultDisplay.textContent = '';
+
+          // If empty, ignore
+          if (!expr) return;
+
+          // If global error, mark all as failed basically (or just blocked)
+          if (codeError) {
+            div.classList.add('failure');
+            resultDisplay.textContent = 'Blocked';
+            return;
+          }
+
+          try {
+            const res = window.eval(expr);
+
+            // Decide success/failure
+            const isSuccess = Boolean(res); // Truthy = Success
+
+            if (isSuccess) {
+              div.classList.add('success');
+            } else {
+              div.classList.add('failure');
+            }
+
+            // Show result text if it's interesting
+            // If it's a boolean comparison like `a == b`, result is true/false.
+            // We might want to show the actual value, but hard to guess what user wanted unless we parse.
+            // We will just show the return value for now. 
+            resultDisplay.textContent = String(res);
+
+          } catch (e) {
+            div.classList.add('failure');
+            resultDisplay.textContent = e.name; // e.g. ReferenceError
+          }
+        });
       }
-    </script>
-  </body>
+
+      // --- UI Helper ---
+
+      function createTestRow(val = '') {
+        const div = document.createElement('div');
+        div.className = 'test-item';
+
+        // Status Icon Placeholder
+        const icon = document.createElement('div');
+        icon.className = 'status-icon';
+        div.appendChild(icon);
+
+        // Input
+        const input = document.createElement('input');
+        input.className = 'test-input';
+        input.type = 'text';
+        input.value = val;
+        input.placeholder = 'condition';
+        input.spellcheck = false;
+
+        // Events for input
+        input.addEventListener('keyup', runTests);
+        input.addEventListener('change', runTests);
+
+        div.appendChild(input);
+
+        // Result Text
+        const display = document.createElement('span');
+        display.className = 'test-result-display';
+        div.appendChild(display);
+
+        // Delete Button
+        const delBtn = document.createElement('button');
+        delBtn.className = 'remove-btn';
+        delBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        delBtn.onclick = () => {
+          div.remove();
+          // Remove from our internal list tracking
+          testElements = testElements.filter(t => t.div !== div);
+          runTests();
+        };
+        div.appendChild(delBtn);
+
+        testsContainer.appendChild(div);
+
+        // Track it
+        const testObj = { div, input, resultDisplay: display, statusIcon: icon };
+        testElements.push(testObj);
+
+        return testObj;
+      }
+
+      // --- Init Events ---
+
+      codeInput.addEventListener('input', runTests);
+
+      addTestBtn.addEventListener('click', () => {
+        const { input } = createTestRow('');
+        input.focus();
+        // We don't run tests immediately on adding empty row, wait for input
+      });
+
+      // Initialize default tests
+      initialTestCases.forEach(t => createTestRow(t));
+
+      // Run once
+      runTests();
+
+    })();
+  </script>
+</body>
+
 </html>
